@@ -1,17 +1,97 @@
 package com.maidfinder.app.data.repository
 
-import com.maidfinder.app.data.model.Booking
-import com.maidfinder.app.data.model.BookingStatus
+import com.maidfinder.app.data.model.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.UUID
 
-/**
- * In-memory implementation of [BookingRepository].
- */
 class InMemoryBookingRepository : BookingRepository {
 
-    private val bookings = mutableListOf<Booking>()
+    private val bookings = mutableListOf<Booking>(
+        Booking(
+            id = "book_001",
+            clientId = "demo_client_001",
+            clientName = "Priya M.",
+            maidId = "maid_001",
+            maidName = "Lakshmi R.",
+            status = BookingStatus.CONFIRMED,
+            dateStart = "2026-04-01",
+            dateEnd = "2026-04-30",
+            agreedRate = 150.0,
+            rateType = BudgetType.HOURLY,
+            totalAmount = 6000.0,
+            createdAt = System.currentTimeMillis() - 86400000
+        ),
+        Booking(
+            id = "book_002",
+            clientId = "demo_client_001",
+            clientName = "Priya M.",
+            maidId = "maid_002",
+            maidName = "Sunita K.",
+            status = BookingStatus.COMPLETED,
+            dateStart = "2026-03-15",
+            dateEnd = "2026-03-20",
+            agreedRate = 120.0,
+            rateType = BudgetType.HOURLY,
+            totalAmount = 1200.0,
+            createdAt = System.currentTimeMillis() - 604800000
+        ),
+        Booking(
+            id = "book_003",
+            clientId = "demo_client_001",
+            clientName = "Priya M.",
+            maidId = "maid_004",
+            maidName = "Anita D.",
+            status = BookingStatus.PENDING,
+            dateStart = "2026-04-05",
+            dateEnd = "2026-04-10",
+            agreedRate = 200.0,
+            rateType = BudgetType.HOURLY,
+            totalAmount = 2000.0,
+            createdAt = System.currentTimeMillis() - 3600000
+        ),
+        Booking(
+            id = "book_004",
+            clientId = "client_002",
+            clientName = "Meera P.",
+            maidId = "maid_001",
+            maidName = "Lakshmi R.",
+            status = BookingStatus.IN_PROGRESS,
+            dateStart = "2026-03-28",
+            dateEnd = "2026-04-28",
+            agreedRate = 150.0,
+            rateType = BudgetType.HOURLY,
+            totalAmount = 8000.0,
+            createdAt = System.currentTimeMillis() - 172800000
+        ),
+        Booking(
+            id = "book_005",
+            clientId = "client_003",
+            clientName = "Arun K.",
+            maidId = "maid_001",
+            maidName = "Lakshmi R.",
+            status = BookingStatus.COMPLETED,
+            dateStart = "2026-03-01",
+            dateEnd = "2026-03-15",
+            agreedRate = 150.0,
+            rateType = BudgetType.HOURLY,
+            totalAmount = 3000.0,
+            createdAt = System.currentTimeMillis() - 2592000000
+        ),
+        Booking(
+            id = "book_006",
+            clientId = "demo_client_001",
+            clientName = "Priya M.",
+            maidId = "maid_003",
+            maidName = "Priya M.",
+            status = BookingStatus.CANCELLED,
+            dateStart = "2026-03-25",
+            agreedRate = 180.0,
+            rateType = BudgetType.HOURLY,
+            totalAmount = 0.0,
+            createdAt = System.currentTimeMillis() - 432000000
+        )
+    )
 
     override suspend fun getBookings(
         userId: String,

@@ -4,6 +4,40 @@ All notable changes to MaidFinder will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.0.0] - 2026-03-31
+
+### Added - Feature Parity & Auth Release
+- **Authentication**: OTP login screen with phone verification, demo mode toggle (Client/Maid)
+- **Bookings Screen**: Full bookings list for both user types with Active/Completed/Cancelled tabs
+- **Messages Screen**: Conversation list with search, unread badges, online indicators
+- **Chat Screen**: Real-time message bubbles, voice note placeholder, system messages
+- **Profile Screen**: Role-aware profile with gradient header, settings menu, demo mode switcher
+- **Design System**: Reusable components (AvatarInitials, StatusBadge, GradientButton, EmptyState, ShimmerEffect)
+- **Animations**: Pulsing online dots, animated tab transitions, shimmer loading effects
+- **Data Models**: AuthSession, Conversation, Message, MessageType
+- **Repositories**: AuthRepository (OTP + demo), MessageRepository (conversations + messages)
+- Sample bookings data (6 bookings across multiple statuses)
+- Sample conversations with messages
+- Badge indicators on Messages tab
+- Online/offline status indicators
+
+### Changed
+- MainScreen now shows 4 tabs for both roles (Home, Bookings, Messages, Profile)
+- MaidMainScreen uses authSession for user-aware screens
+- Navigation graph expanded to 8 routes with auth flow
+- MaidFinderApp now creates AuthViewModel and manages auth state
+
+### Feature Parity Matrix
+| Feature | Client | Maid |
+|---------|--------|------|
+| Browse/Search | ✅ | ✅ |
+| Bookings List | ✅ | ✅ |
+| Messages | ✅ | ✅ |
+| Chat | ✅ | ✅ |
+| Profile | ✅ | ✅ |
+| Auth/Login | ✅ | ✅ |
+| Demo Mode | ✅ | ✅ |
+
 ## [Unreleased]
 
 ## [0.5.0] - 2026-03-31
