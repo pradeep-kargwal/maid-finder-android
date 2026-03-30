@@ -46,7 +46,8 @@ import com.maidfinder.app.ui.viewmodel.MaidListViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ClientDashboardScreen(
-    viewModel: MaidListViewModel? = null
+    viewModel: MaidListViewModel? = null,
+    onMaidClick: (String) -> Unit = {}
 ) {
     val uiState = viewModel?.uiState?.collectAsState()?.value
 
@@ -141,6 +142,7 @@ fun ClientDashboardScreen(
                             items(uiState.maids) { maid ->
                                 MaidCard(
                                     maid = maid,
+                                    onClick = { onMaidClick(maid.userId) },
                                     onSaveClick = { viewModel?.toggleSaveMaid(maid.userId) }
                                 )
                             }
@@ -167,9 +169,11 @@ fun ClientDashboardScreen(
 @Composable
 private fun MaidCard(
     maid: MaidProfile,
+    onClick: () -> Unit = {},
     onSaveClick: () -> Unit
 ) {
     Card(
+        onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
