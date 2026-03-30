@@ -8,20 +8,18 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.maidfinder.app.data.ServiceLocator
-import com.maidfinder.app.ui.screens.ClientDashboardScreen
-import com.maidfinder.app.ui.screens.MaidDashboardScreen
+import com.maidfinder.app.ui.screens.ClientMainScreen
+import com.maidfinder.app.ui.screens.MaidMainScreen
 import com.maidfinder.app.ui.screens.MaidProfileDetailScreen
 import com.maidfinder.app.ui.screens.PostJobScreen
 import com.maidfinder.app.ui.screens.RoleSelectionScreen
-import com.maidfinder.app.ui.viewmodel.JobFeedViewModel
-import com.maidfinder.app.ui.viewmodel.MaidListViewModel
 import com.maidfinder.app.ui.viewmodel.MaidProfileViewModel
 import com.maidfinder.app.ui.viewmodel.PostJobViewModel
 
 sealed class Screen(val route: String) {
     data object RoleSelection : Screen("role_selection")
-    data object ClientDashboard : Screen("client_dashboard")
-    data object MaidDashboard : Screen("maid_dashboard")
+    data object ClientMain : Screen("client_main")
+    data object MaidMain : Screen("maid_main")
     data object MaidProfileDetail : Screen("maid_profile/{maidId}") {
         fun createRoute(maidId: String) = "maid_profile/$maidId"
     }
@@ -40,24 +38,20 @@ fun MaidFinderNavGraph(
         composable(Screen.RoleSelection.route) {
             RoleSelectionScreen(
                 onClientSelected = {
-                    navController.navigate(Screen.ClientDashboard.route) {
+                    navController.navigate(Screen.ClientMain.route) {
                         popUpTo(Screen.RoleSelection.route) { inclusive = true }
                     }
                 },
                 onMaidSelected = {
-                    navController.navigate(Screen.MaidDashboard.route) {
+                    navController.navigate(Screen.MaidMain.route) {
                         popUpTo(Screen.RoleSelection.route) { inclusive = true }
                     }
                 }
             )
         }
 
-        composable(Screen.ClientDashboard.route) {
-            val viewModel: MaidListViewModel = viewModel(
-                factory = MaidListViewModel.Factory(ServiceLocator.maidRepository)
-            )
-            ClientDashboardScreen(
-                viewModel = viewModel,
+        composable(Screen.ClientMain.route) {
+            ClientMainScreen(
                 onMaidClick = { maidId ->
                     navController.navigate(Screen.MaidProfileDetail.createRoute(maidId))
                 },
@@ -67,11 +61,8 @@ fun MaidFinderNavGraph(
             )
         }
 
-        composable(Screen.MaidDashboard.route) {
-            val viewModel: JobFeedViewModel = viewModel(
-                factory = JobFeedViewModel.Factory(ServiceLocator.jobRepository)
-            )
-            MaidDashboardScreen(viewModel = viewModel)
+        composable(Screen.MaidMain.route) {
+            MaidMainScreen()
         }
 
         composable(
@@ -95,9 +86,7 @@ fun MaidFinderNavGraph(
             PostJobScreen(
                 viewModel = viewModel,
                 onBackClick = { navController.popBackStack() },
-                onJobPosted = {
-                    navController.popBackStack()
-                }
+                onJobPosted = { navController.popBackStack() }
             )
         }
     }
