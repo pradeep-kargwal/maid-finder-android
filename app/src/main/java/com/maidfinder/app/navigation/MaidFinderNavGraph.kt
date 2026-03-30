@@ -8,12 +8,14 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.maidfinder.app.data.ServiceLocator
+import com.maidfinder.app.ui.screens.BookingScreen
 import com.maidfinder.app.ui.screens.ClientMainScreen
 import com.maidfinder.app.ui.screens.JobDetailScreen
 import com.maidfinder.app.ui.screens.MaidMainScreen
 import com.maidfinder.app.ui.screens.MaidProfileDetailScreen
 import com.maidfinder.app.ui.screens.PostJobScreen
 import com.maidfinder.app.ui.screens.RoleSelectionScreen
+import com.maidfinder.app.ui.viewmodel.BookingViewModel
 import com.maidfinder.app.ui.viewmodel.JobDetailViewModel
 import com.maidfinder.app.ui.viewmodel.MaidProfileViewModel
 import com.maidfinder.app.ui.viewmodel.PostJobViewModel
@@ -28,6 +30,9 @@ sealed class Screen(val route: String) {
     data object PostJob : Screen("post_job")
     data object JobDetail : Screen("job_detail/{jobId}") {
         fun createRoute(jobId: String) = "job_detail/$jobId"
+    }
+    data object Booking : Screen("booking/{maidId}") {
+        fun createRoute(maidId: String) = "booking/$maidId"
     }
 }
 
@@ -84,7 +89,10 @@ fun MaidFinderNavGraph(
             )
             MaidProfileDetailScreen(
                 viewModel = viewModel,
-                onBackClick = { navController.popBackStack() }
+                onBackClick = { navController.popBackStack() },
+                onBookClick = { id ->
+                    navController.navigate(Screen.Booking.createRoute(id))
+                }
             )
         }
 
@@ -110,6 +118,27 @@ fun MaidFinderNavGraph(
             JobDetailScreen(
                 viewModel = viewModel,
                 onBackClick = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = Screen.Booking.route,
+            arguments = listOf(navArgument("maidId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val maidId = backStackEntry.arguments?.getString("maidId") ?: return@composable
+            val viewModel: BookingViewModel = viewModel(
+                factory = BookingViewModel.Factory(
+                    ServiceLocator.maidRepository,
+                    ServiceLocator.bookingRepository,
+                    maidId
+                )
+            )
+            BookingScreen(
+                viewModel = viewModel,
+                onBackClick = { navController.popBackStack() },
+                onBookingComplete = {
+                    navController.popBackStack(Screen.ClientMain.route, inclusive = false)
+                }
             )
         }
     }
