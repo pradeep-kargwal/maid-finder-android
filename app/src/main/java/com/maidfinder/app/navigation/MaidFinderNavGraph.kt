@@ -11,10 +11,12 @@ import com.maidfinder.app.data.ServiceLocator
 import com.maidfinder.app.ui.screens.ClientDashboardScreen
 import com.maidfinder.app.ui.screens.MaidDashboardScreen
 import com.maidfinder.app.ui.screens.MaidProfileDetailScreen
+import com.maidfinder.app.ui.screens.PostJobScreen
 import com.maidfinder.app.ui.screens.RoleSelectionScreen
 import com.maidfinder.app.ui.viewmodel.JobFeedViewModel
 import com.maidfinder.app.ui.viewmodel.MaidListViewModel
 import com.maidfinder.app.ui.viewmodel.MaidProfileViewModel
+import com.maidfinder.app.ui.viewmodel.PostJobViewModel
 
 sealed class Screen(val route: String) {
     data object RoleSelection : Screen("role_selection")
@@ -23,6 +25,7 @@ sealed class Screen(val route: String) {
     data object MaidProfileDetail : Screen("maid_profile/{maidId}") {
         fun createRoute(maidId: String) = "maid_profile/$maidId"
     }
+    data object PostJob : Screen("post_job")
 }
 
 @Composable
@@ -57,6 +60,9 @@ fun MaidFinderNavGraph(
                 viewModel = viewModel,
                 onMaidClick = { maidId ->
                     navController.navigate(Screen.MaidProfileDetail.createRoute(maidId))
+                },
+                onPostJobClick = {
+                    navController.navigate(Screen.PostJob.route)
                 }
             )
         }
@@ -79,6 +85,19 @@ fun MaidFinderNavGraph(
             MaidProfileDetailScreen(
                 viewModel = viewModel,
                 onBackClick = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.PostJob.route) {
+            val viewModel: PostJobViewModel = viewModel(
+                factory = PostJobViewModel.Factory(ServiceLocator.jobRepository)
+            )
+            PostJobScreen(
+                viewModel = viewModel,
+                onBackClick = { navController.popBackStack() },
+                onJobPosted = {
+                    navController.popBackStack()
+                }
             )
         }
     }

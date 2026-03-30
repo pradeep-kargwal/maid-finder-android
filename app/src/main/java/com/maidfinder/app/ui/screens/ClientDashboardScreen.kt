@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Star
@@ -24,6 +25,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -47,7 +49,8 @@ import com.maidfinder.app.ui.viewmodel.MaidListViewModel
 @Composable
 fun ClientDashboardScreen(
     viewModel: MaidListViewModel? = null,
-    onMaidClick: (String) -> Unit = {}
+    onMaidClick: (String) -> Unit = {},
+    onPostJobClick: () -> Unit = {}
 ) {
     val uiState = viewModel?.uiState?.collectAsState()?.value
 
@@ -65,6 +68,14 @@ fun ClientDashboardScreen(
                     titleContentColor = MaterialTheme.colorScheme.onPrimary
                 )
             )
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = onPostJobClick,
+                containerColor = GreenPrimary
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Post Job")
+            }
         }
     ) { padding ->
         Column(
