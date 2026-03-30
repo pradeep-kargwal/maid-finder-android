@@ -79,7 +79,9 @@ fun ClientMainScreen(
 }
 
 @Composable
-fun MaidMainScreen() {
+fun MaidMainScreen(
+    onJobClick: (String) -> Unit = {}
+) {
     val jobFeedViewModel: JobFeedViewModel = viewModel(
         factory = JobFeedViewModel.Factory(ServiceLocator.jobRepository)
     )
@@ -109,7 +111,7 @@ fun MaidMainScreen() {
         }
     ) { padding ->
         when (selectedTab) {
-            0, 1 -> MaidDashboardScreen(viewModel = jobFeedViewModel)
+            0, 1 -> MaidDashboardScreen(viewModel = jobFeedViewModel, onJobClick = onJobClick)
             2 -> PlaceholderScreen("My Bookings")
             3 -> PlaceholderScreen("Messages")
             4 -> PlaceholderScreen("Profile")

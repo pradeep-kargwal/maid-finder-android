@@ -37,7 +37,8 @@ import com.maidfinder.app.ui.viewmodel.JobFeedViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MaidDashboardScreen(
-    viewModel: JobFeedViewModel? = null
+    viewModel: JobFeedViewModel? = null,
+    onJobClick: (String) -> Unit = {}
 ) {
     val uiState = viewModel?.uiState?.collectAsState()?.value
 
@@ -130,7 +131,10 @@ fun MaidDashboardScreen(
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             items(uiState.jobs) { job ->
-                                JobCard(job = job)
+                                JobCard(
+                                    job = job,
+                                    onClick = { onJobClick(job.id) }
+                                )
                             }
                         }
                     }
@@ -152,8 +156,9 @@ fun MaidDashboardScreen(
 }
 
 @Composable
-private fun JobCard(job: Job) {
+private fun JobCard(job: Job, onClick: () -> Unit = {}) {
     Card(
+        onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {

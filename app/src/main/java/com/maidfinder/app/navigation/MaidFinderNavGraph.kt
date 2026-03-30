@@ -9,10 +9,12 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.maidfinder.app.data.ServiceLocator
 import com.maidfinder.app.ui.screens.ClientMainScreen
+import com.maidfinder.app.ui.screens.JobDetailScreen
 import com.maidfinder.app.ui.screens.MaidMainScreen
 import com.maidfinder.app.ui.screens.MaidProfileDetailScreen
 import com.maidfinder.app.ui.screens.PostJobScreen
 import com.maidfinder.app.ui.screens.RoleSelectionScreen
+import com.maidfinder.app.ui.viewmodel.JobDetailViewModel
 import com.maidfinder.app.ui.viewmodel.MaidProfileViewModel
 import com.maidfinder.app.ui.viewmodel.PostJobViewModel
 
@@ -24,6 +26,9 @@ sealed class Screen(val route: String) {
         fun createRoute(maidId: String) = "maid_profile/$maidId"
     }
     data object PostJob : Screen("post_job")
+    data object JobDetail : Screen("job_detail/{jobId}") {
+        fun createRoute(jobId: String) = "job_detail/$jobId"
+    }
 }
 
 @Composable
@@ -62,7 +67,11 @@ fun MaidFinderNavGraph(
         }
 
         composable(Screen.MaidMain.route) {
-            MaidMainScreen()
+            MaidMainScreen(
+                onJobClick = { jobId ->
+                    navController.navigate(Screen.JobDetail.createRoute(jobId))
+                }
+            )
         }
 
         composable(
@@ -87,6 +96,20 @@ fun MaidFinderNavGraph(
                 viewModel = viewModel,
                 onBackClick = { navController.popBackStack() },
                 onJobPosted = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = Screen.JobDetail.route,
+            arguments = listOf(navArgument("jobId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val jobId = backStackEntry.arguments?.getString("jobId") ?: return@composable
+            val viewModel: JobDetailViewModel = viewModel(
+                factory = JobDetailViewModel.Factory(ServiceLocator.jobRepository, jobId)
+            )
+            JobDetailScreen(
+                viewModel = viewModel,
+                onBackClick = { navController.popBackStack() }
             )
         }
     }
