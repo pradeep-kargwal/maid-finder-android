@@ -33,7 +33,7 @@ class InMemoryBookingRepository : BookingRepository {
         }
 
     override suspend fun createBooking(booking: Booking): Booking = withContext(Dispatchers.IO) {
-        val newBooking = booking.copy(id = "book_${UUID.randomUUID().take(8)}")
+        val newBooking = booking.copy(id = "book_${UUID.randomUUID().toString().take(8)}")
         bookings.add(0, newBooking)
         newBooking
     }

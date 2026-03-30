@@ -41,7 +41,7 @@ class InMemoryJobRepository : JobRepository {
         }
 
     override suspend fun createJob(job: Job): Job = withContext(Dispatchers.IO) {
-        val newJob = job.copy(id = "job_${UUID.randomUUID().take(8)}")
+        val newJob = job.copy(id = "job_${UUID.randomUUID().toString().take(8)}")
         InMemoryJobDataSource.addJob(newJob)
         newJob
     }
