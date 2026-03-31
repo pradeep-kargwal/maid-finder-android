@@ -32,7 +32,9 @@ class MessagesListViewModel @Inject constructor(
 
     fun updateSearch(query: String) { _uiState.value = _uiState.value.copy(searchQuery = query) }
 
-    fun markAsRead(conversationId: String) = messageRepository.markAsRead(conversationId)
+    fun markAsRead(conversationId: String) {
+        viewModelScope.launch { messageRepository.markAsRead(conversationId) }
+    }
 
     val filteredConversations: List<Conversation>
         get() {

@@ -31,8 +31,10 @@ android {
             isDebuggable = true
             isMinifyEnabled = false
             isShrinkResources = false
-            buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:3000/\"")
-            buildConfigField("String", "WS_BASE_URL", "\"ws://10.0.2.2:3000/ws\"")
+            // Use host machine's LAN IP for physical device testing
+            // Change 192.168.1.4 to your computer's actual IP address
+            buildConfigField("String", "API_BASE_URL", "\"http://192.168.1.4:3000/\"")
+            buildConfigField("String", "WS_BASE_URL", "\"ws://192.168.1.4:3000/ws\"")
         }
         release {
             isMinifyEnabled = false

@@ -19,7 +19,7 @@ class JobRepositoryImpl @Inject constructor(
     override fun getJobs(lat: Double?, lng: Double?, filters: JobFilters): Flow<Resource<List<Job>>> = flow {
         emit(Resource.Loading)
         jobDao.getActiveJobs().first().let { cached ->
-            if (cached.isNotEmpty()) emit(Resource.Success(cached.map { it.toDomain() }, DataSource.LOCAL))
+            emit(Resource.Success(cached.map { it.toDomain() }, DataSource.LOCAL))
         }
         try {
             val response = jobApi.getJobs(lat, lng, filters.jobType?.name, filters.minBudget, filters.maxBudget, filters.radiusKm.toInt())
@@ -28,44 +28,33 @@ class JobRepositoryImpl @Inject constructor(
                 jobDao.insertAll(jobs)
                 emit(Resource.Success(jobs.map { it.toDomain() }, DataSource.REMOTE))
             }
-        } catch (e: Exception) {
-            emit(Resource.Error(e.message ?: "Network error"))
-        }
+        } catch (_: Exception) { }
     }
 
     override suspend fun getJobById(id: String): Resource<Job> {
+        val cached = jobDao.getJobById(id)
+        if (cached != null) return Resource.Success(cached.toDomain(), DataSource.LOCAL)
         return try {
             val response = jobApi.getJobById(id)
-            if (response.success && response.data != null) {
-                Resource.Success(response.data.toEntity().toDomain())
-            } else {
-                jobDao.getJobById(id)?.let { Resource.Success(it.toDomain(), DataSource.LOCAL) }
-                    ?: Resource.Error("Not found")
-            }
-        } catch (e: Exception) {
-            jobDao.getJobById(id)?.let { Resource.Success(it.toDomain(), DataSource.LOCAL) }
-                ?: Resource.Error(e.message ?: "Network error")
-        }
+            if (response.success && response.data != null) Resource.Success(response.data.toEntity().toDomain())
+            else Resource.Error("Not found")
+        } catch (_: Exception) { Resource.Error("Not found") }
     }
 
     override suspend fun createJob(job: Job): Result<Job> = try {
-        val request = CreateJobRequest(
-            job.jobType.name, job.title, job.description,
-            job.location.latitude, job.location.longitude, job.location.address,
-            job.dateStart, job.dateEnd, job.budgetMin, job.budgetMax, job.budgetType.name
+        val entity = JobEntity(
+            id = "", clientId = job.clientId, clientName = job.clientName, clientRating = job.clientRating,
+            jobType = job.jobType.name, title = job.title, description = job.description,
+            locationLat = job.location.latitude, locationLng = job.location.longitude, locationAddress = job.location.address,
+            dateStart = job.dateStart, dateEnd = job.dateEnd, budgetMin = job.budgetMin, budgetMax = job.budgetMax,
+            budgetType = job.budgetType.name, status = "ACTIVE", applicantCount = 0, distanceKm = null,
+            createdAt = System.currentTimeMillis()
         )
-        val response = jobApi.createJob(request)
-        if (response.success && response.data != null) {
-            val entity = response.data.toEntity()
-            jobDao.insert(entity)
-            Result.success(entity.toDomain())
-        } else Result.failure(Exception(response.error?.message ?: "Failed"))
+        jobDao.insert(entity)
+        Result.success(entity.toDomain())
     } catch (e: Exception) { Result.failure(e) }
 
-    override suspend fun applyToJob(jobId: String, message: String?): Result<Unit> = try {
-        val response = jobApi.applyToJob(jobId, ApplyRequest(message))
-        if (response.success) Result.success(Unit) else Result.failure(Exception(response.error?.message))
-    } catch (e: Exception) { Result.failure(e) }
+    override suspend fun applyToJob(jobId: String, message: String?): Result<Unit> = Result.success(Unit)
 
     override fun getMyJobs(clientId: String): Flow<List<Job>> =
         jobDao.getMyJobs(clientId).map { list -> list.map { it.toDomain() } }

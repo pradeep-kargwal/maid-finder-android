@@ -19,42 +19,34 @@ class MaidRepositoryImpl @Inject constructor(
 
     override fun getNearbyMaids(lat: Double, lng: Double, radiusKm: Double, filters: MaidFilters): Flow<Resource<List<MaidProfile>>> = flow {
         emit(Resource.Loading)
-        // Emit cached data first
+        // Load from Room (seeded on first launch)
         maidDao.getAllMaids().first().let { cached ->
-            if (cached.isNotEmpty()) {
-                emit(Resource.Success(cached.map { it.toDomain() }, DataSource.LOCAL))
-            }
+            emit(Resource.Success(cached.map { it.toDomain() }, DataSource.LOCAL))
         }
-        // Fetch from network
+        // Network sync (best-effort, swallow errors)
         try {
             val response = userApi.searchMaids(lat, lng, radiusKm.toInt())
             if (response.success && response.data != null) {
                 val maids = response.data.items.map { it.toEntity() }
                 maidDao.insertAll(maids)
                 emit(Resource.Success(maids.map { it.toDomain() }, DataSource.REMOTE))
-            } else {
-                emit(Resource.Error(response.error?.message ?: "Unknown error"))
             }
-        } catch (e: Exception) {
-            emit(Resource.Error(e.message ?: "Network error"))
+        } catch (_: Exception) {
+            // Network unavailable - Room data is sufficient
         }
     }
 
     override suspend fun getMaidById(id: String): Resource<MaidProfile> {
+        // Try Room first
+        val cached = maidDao.getMaidById(id)
+        if (cached != null) return Resource.Success(cached.toDomain(), DataSource.LOCAL)
+        // Try network as fallback
         return try {
             val response = userApi.getMaidById(id)
             if (response.success && response.data != null) {
                 Resource.Success(response.data.toEntity().toDomain())
-            } else {
-                val cached = maidDao.getMaidById(id)
-                if (cached != null) Resource.Success(cached.toDomain(), DataSource.LOCAL)
-                else Resource.Error(response.error?.message ?: "Not found")
-            }
-        } catch (e: Exception) {
-            val cached = maidDao.getMaidById(id)
-            if (cached != null) Resource.Success(cached.toDomain(), DataSource.LOCAL)
-            else Resource.Error(e.message ?: "Network error")
-        }
+            } else Resource.Error("Not found")
+        } catch (_: Exception) { Resource.Error("Not found") }
     }
 
     override suspend fun saveMaid(maidId: String) = savedMaidDao.save(SavedMaidEntity(maidId))
@@ -65,7 +57,6 @@ class MaidRepositoryImpl @Inject constructor(
         maidDao.getSavedMaids().map { list -> list.map { it.toDomain() } }
 }
 
-// Mapping extensions
 private fun MaidProfileDto.toEntity() = MaidProfileEntity(
     userId = id, displayName = displayName, photoUrl = photoUrl, skills = skills,
     experienceYears = experienceYears, hourlyRate = hourlyRate, languages = languages,

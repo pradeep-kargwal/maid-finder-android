@@ -62,5 +62,5 @@ interface MessageRepository {
     fun getConversations(): Flow<List<Conversation>>
     suspend fun getMessages(conversationId: String): List<Message>
     suspend fun sendMessage(conversationId: String, senderId: String, receiverId: String, content: String): Result<Message>
-    fun markAsRead(conversationId: String)
+    suspend fun markAsRead(conversationId: String)
 }
