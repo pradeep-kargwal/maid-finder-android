@@ -24,7 +24,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.maidfinder.app.data.model.UserRole
+import com.maidfinder.app.domain.model.UserRole
 import com.maidfinder.app.ui.components.AvatarInitials
 import com.maidfinder.app.ui.components.GradientButton
 import com.maidfinder.app.ui.theme.*

@@ -1,6 +1,5 @@
 package com.maidfinder.app.ui.screens
 
-import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -22,33 +21,29 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.maidfinder.app.data.model.Message
-import com.maidfinder.app.data.model.MessageType
-import com.maidfinder.app.data.repository.MessageRepository
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.maidfinder.app.domain.model.Message
+import com.maidfinder.app.domain.model.MessageType
 import com.maidfinder.app.ui.components.AvatarInitials
 import com.maidfinder.app.ui.components.AnimatedPulsingDot
 import com.maidfinder.app.ui.theme.*
+import com.maidfinder.app.ui.viewmodel.ChatViewModel
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
-    messageRepository: MessageRepository,
-    conversationId: String,
-    participantName: String,
-    participantId: String,
-    currentUserId: String,
+    viewModel: ChatViewModel = hiltViewModel(),
     isOnline: Boolean = false,
     onBackClick: () -> Unit
 ) {
-    var messages by remember { mutableStateOf<List<Message>>(emptyList()) }
-    var inputText by remember { mutableStateOf("") }
+    val uiState by viewModel.uiState.collectAsState()
     val listState = rememberLazyListState()
-    val scope = rememberCoroutineScope()
 
-    LaunchedEffect(conversationId) {
-        messages = messageRepository.getMessages(conversationId)
-        messageRepository.markAsRead(conversationId)
+    LaunchedEffect(uiState.messages.size) {
+        if (uiState.messages.isNotEmpty()) listState.animateScrollToItem(uiState.messages.size - 1)
     }
 
     Scaffold(
@@ -56,170 +51,63 @@ fun ChatScreen(
             TopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box {
-                            AvatarInitials(name = participantName, size = 36.dp)
-                            if (isOnline) {
-                                Box(
-                                    modifier = Modifier.size(10.dp).align(Alignment.BottomEnd)
-                                        .clip(CircleShape).background(MaterialTheme.colorScheme.surface).padding(1.5.dp)
-                                ) {
-                                    AnimatedPulsingDot(color = Success, size = 7.dp)
-                                }
-                            }
-                        }
-                        Spacer(modifier = Modifier.width(12.dp))
+                        Box { AvatarInitials(name = viewModel.participantName, size = 36.dp) }
+                        Spacer(Modifier.width(12.dp))
                         Column {
-                            Text(participantName, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                            Text(
-                                if (isOnline) "Online" else "Offline",
-                                fontSize = 12.sp,
-                                color = if (isOnline) Success else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Text(viewModel.participantName, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                            Text(if (isOnline) "Online" else "Offline", fontSize = 12.sp,
+                                color = if (isOnline) Success else MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
-                    }
-                },
-                actions = {
-                    IconButton(onClick = {}) {
-                        Icon(Icons.Default.Phone, "Call")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
+                navigationIcon = { IconButton(onClick = onBackClick) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+                actions = { IconButton(onClick = {}) { Icon(Icons.Default.Phone, "Call") } },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         },
         bottomBar = {
-            // Input bar
-            Surface(
-                tonalElevation = 3.dp,
-                shadowElevation = 8.dp
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(onClick = {}) {
-                        Icon(Icons.Default.Mic, "Voice note", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    OutlinedTextField(
-                        value = inputText,
-                        onValueChange = { inputText = it },
-                        placeholder = { Text("Type a message...") },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(24.dp),
-                        singleLine = false,
-                        maxLines = 4,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
-                        )
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    FloatingActionButton(
-                        onClick = {
-                            if (inputText.isNotBlank()) {
-                                scope.launch {
-                                    messageRepository.sendMessage(
-                                        conversationId = conversationId,
-                                        senderId = currentUserId,
-                                        receiverId = participantId,
-                                        content = inputText
-                                    )
-                                    messages = messageRepository.getMessages(conversationId)
-                                    inputText = ""
-                                    listState.animateScrollToItem(messages.size - 1)
-                                }
-                            }
-                        },
-                        modifier = Modifier.size(48.dp),
-                        containerColor = BluePrimary
-                    ) {
+            Surface(tonalElevation = 3.dp, shadowElevation = 8.dp) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = {}) { Icon(Icons.Default.Mic, "Voice", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    OutlinedTextField(value = uiState.inputText, onValueChange = { viewModel.updateInput(it) },
+                        placeholder = { Text("Type a message...") }, modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(24.dp), singleLine = false, maxLines = 4)
+                    Spacer(Modifier.width(8.dp))
+                    FloatingActionButton(onClick = { viewModel.sendMessage() }, modifier = Modifier.size(48.dp), containerColor = BluePrimary) {
                         Icon(Icons.AutoMirrored.Filled.Send, "Send", modifier = Modifier.size(20.dp))
                     }
                 }
             }
         }
     ) { padding ->
-        LazyColumn(
-            state = listState,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-            contentPadding = PaddingValues(vertical = 8.dp)
-        ) {
-            items(messages, key = { it.id }) { message ->
-                MessageBubble(
-                    message = message,
-                    isMine = message.senderId == currentUserId
-                )
-            }
+        LazyColumn(state = listState, modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
+            items(uiState.messages, key = { it.id }) { MessageBubble(it, it.senderId == viewModel.currentUserId) }
         }
     }
 }
 
 @Composable
 private fun MessageBubble(message: Message, isMine: Boolean) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = if (isMine) Alignment.End else Alignment.Start
-    ) {
+    Column(Modifier.fillMaxWidth(), horizontalAlignment = if (isMine) Alignment.End else Alignment.Start) {
         if (message.type == MessageType.SYSTEM) {
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.Center
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant
-                ) {
-                    Text(
-                        message.content,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
+                    Text(message.content, Modifier.padding(16.dp, 8.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         } else {
-            Surface(
-                shape = RoundedCornerShape(
-                    topStart = 16.dp,
-                    topEnd = 16.dp,
-                    bottomStart = if (isMine) 16.dp else 4.dp,
-                    bottomEnd = if (isMine) 4.dp else 16.dp
-                ),
-                color = if (isMine) BluePrimary else MaterialTheme.colorScheme.surfaceVariant,
-                shadowElevation = 1.dp
-            ) {
-                Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
-                    Text(
-                        message.content,
-                        color = if (isMine) Color.White else MaterialTheme.colorScheme.onSurface,
-                        fontSize = 15.sp
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        formatTime(message.createdAt),
+            Surface(shape = RoundedCornerShape(16.dp, 16.dp, if (isMine) 16.dp else 4.dp, if (isMine) 4.dp else 16.dp),
+                color = if (isMine) BluePrimary else MaterialTheme.colorScheme.surfaceVariant, shadowElevation = 1.dp) {
+                Column(Modifier.padding(14.dp, 10.dp)) {
+                    Text(message.content, color = if (isMine) Color.White else MaterialTheme.colorScheme.onSurface, fontSize = 15.sp)
+                    Spacer(Modifier.height(2.dp))
+                    Text(SimpleDateFormat("hh:mm a", Locale.getDefault()).format(Date(message.createdAt)),
                         style = MaterialTheme.typography.labelSmall,
-                        color = if (isMine) Color.White.copy(alpha = 0.7f)
-                        else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.align(Alignment.End)
-                    )
+                        color = if (isMine) Color.White.copy(0.7f) else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.align(Alignment.End))
                 }
             }
         }
     }
-}
-
-private fun formatTime(timestamp: Long): String {
-    return java.text.SimpleDateFormat("hh:mm a", java.util.Locale.getDefault())
-        .format(java.util.Date(timestamp))
 }

@@ -1,14 +1,15 @@
 package com.maidfinder.app.ui.viewmodel
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.maidfinder.app.data.model.Job
-import com.maidfinder.app.data.repository.JobRepository
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import com.maidfinder.app.domain.model.*
+import com.maidfinder.app.domain.repository.JobRepository
+import com.maidfinder.app.domain.usecase.ApplyToJobUseCase
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 data class JobDetailUiState(
     val job: Job? = null,
@@ -19,68 +20,39 @@ data class JobDetailUiState(
     val applySuccess: Boolean = false
 )
 
-class JobDetailViewModel(
+@HiltViewModel
+class JobDetailViewModel @Inject constructor(
     private val jobRepository: JobRepository,
-    private val jobId: String
+    private val applyToJobUseCase: ApplyToJobUseCase,
+    savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
+    private val jobId: String = savedStateHandle["jobId"] ?: ""
     private val _uiState = MutableStateFlow(JobDetailUiState())
     val uiState: StateFlow<JobDetailUiState> = _uiState.asStateFlow()
 
     init {
-        loadJob()
-    }
-
-    private fun loadJob() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
-            try {
-                val job = jobRepository.getJobById(jobId)
-                _uiState.value = _uiState.value.copy(job = job, isLoading = false)
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    errorMessage = e.message ?: "Failed to load job"
-                )
+            when (val result = jobRepository.getJobById(jobId)) {
+                is Resource.Success -> _uiState.value = _uiState.value.copy(job = result.data, isLoading = false)
+                is Resource.Error -> _uiState.value = _uiState.value.copy(isLoading = false, errorMessage = result.message)
+                is Resource.Loading -> {}
             }
         }
     }
 
     fun applyToJob() {
-        if (_uiState.value.hasApplied) return
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isApplying = true)
-            try {
-                // Simulate application submission
-                kotlinx.coroutines.delay(500)
-                _uiState.value = _uiState.value.copy(
-                    isApplying = false,
-                    hasApplied = true,
-                    applySuccess = true
-                )
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isApplying = false,
-                    errorMessage = e.message ?: "Failed to apply"
-                )
-            }
+            applyToJobUseCase(jobId).fold(
+                onSuccess = { _uiState.value = _uiState.value.copy(isApplying = false, hasApplied = true, applySuccess = true) },
+                onFailure = { _uiState.value = _uiState.value.copy(isApplying = false, errorMessage = it.message) }
+            )
         }
     }
 
     fun expressInterest() {
-        viewModelScope.launch {
-            kotlinx.coroutines.delay(300)
-            _uiState.value = _uiState.value.copy(applySuccess = true)
-        }
-    }
-
-    class Factory(
-        private val jobRepository: JobRepository,
-        private val jobId: String
-    ) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return JobDetailViewModel(jobRepository, jobId) as T
-        }
+        _uiState.value = _uiState.value.copy(applySuccess = true)
     }
 }

@@ -11,9 +11,8 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.maidfinder.app.data.ServiceLocator
-import com.maidfinder.app.data.model.AuthSession
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.maidfinder.app.domain.model.AuthSession
 import com.maidfinder.app.ui.viewmodel.*
 
 data class BottomNavItem(
@@ -31,9 +30,7 @@ fun ClientMainScreen(
     onSwitchRole: () -> Unit,
     onLogout: () -> Unit
 ) {
-    val maidListViewModel: MaidListViewModel = viewModel(
-        factory = MaidListViewModel.Factory(ServiceLocator.maidRepository)
-    )
+    val maidListViewModel: MaidListViewModel = hiltViewModel()
 
     val items = listOf(
         BottomNavItem("Home", Icons.Default.Home),
@@ -86,15 +83,8 @@ fun ClientMainScreen(
                     onMaidClick = onMaidClick,
                     onPostJobClick = onPostJobClick
                 )
-                1 -> BookingsScreen(
-                    bookingRepository = ServiceLocator.bookingRepository,
-                    userId = authSession.userId,
-                    isClient = true
-                )
-                2 -> MessagesScreen(
-                    messageRepository = ServiceLocator.messageRepository,
-                    onConversationClick = onConversationClick
-                )
+                1 -> BookingsScreen(onBookingClick = {})
+                2 -> MessagesScreen(onConversationClick = onConversationClick)
                 3 -> ProfileScreen(
                     session = authSession,
                     onSwitchRole = onSwitchRole,
@@ -113,9 +103,7 @@ fun MaidMainScreen(
     onSwitchRole: () -> Unit,
     onLogout: () -> Unit
 ) {
-    val jobFeedViewModel: JobFeedViewModel = viewModel(
-        factory = JobFeedViewModel.Factory(ServiceLocator.jobRepository)
-    )
+    val jobFeedViewModel: JobFeedViewModel = hiltViewModel()
 
     val items = listOf(
         BottomNavItem("Jobs", Icons.Default.Work),
@@ -167,15 +155,8 @@ fun MaidMainScreen(
                     viewModel = jobFeedViewModel,
                     onJobClick = onJobClick
                 )
-                1 -> BookingsScreen(
-                    bookingRepository = ServiceLocator.bookingRepository,
-                    userId = authSession.userId,
-                    isClient = false
-                )
-                2 -> MessagesScreen(
-                    messageRepository = ServiceLocator.messageRepository,
-                    onConversationClick = onConversationClick
-                )
+                1 -> BookingsScreen(onBookingClick = {})
+                2 -> MessagesScreen(onConversationClick = onConversationClick)
                 3 -> ProfileScreen(
                     session = authSession,
                     onSwitchRole = onSwitchRole,

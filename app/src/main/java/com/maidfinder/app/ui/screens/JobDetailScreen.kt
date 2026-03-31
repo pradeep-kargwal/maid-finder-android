@@ -41,7 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.maidfinder.app.data.model.Job
+import com.maidfinder.app.domain.model.Job
 import com.maidfinder.app.ui.theme.GreenPrimary
 import com.maidfinder.app.ui.viewmodel.JobDetailViewModel
 
