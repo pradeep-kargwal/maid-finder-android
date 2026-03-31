@@ -1,97 +1,61 @@
 package com.maidfinder.app.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.maidfinder.app.data.model.MaidProfile
-import com.maidfinder.app.data.model.Skill
-import com.maidfinder.app.data.model.WorkType
-import com.maidfinder.app.data.repository.MaidRepository
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import com.maidfinder.app.domain.model.*
+import com.maidfinder.app.domain.repository.MaidFilters
+import com.maidfinder.app.domain.repository.MaidRepository
+import com.maidfinder.app.domain.usecase.SearchMaidsUseCase
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-/**
- * UI state for the maid list screen.
- */
 data class MaidListUiState(
     val maids: List<MaidProfile> = emptyList(),
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val selectedWorkType: WorkType? = null,
-    val verifiedOnly: Boolean = false,
-    val searchRadius: Double = 5.0
+    val verifiedOnly: Boolean = false
 )
 
-/**
- * ViewModel for the maid list/browse screen.
- */
-class MaidListViewModel(
+@HiltViewModel
+class MaidListViewModel @Inject constructor(
+    private val searchMaidsUseCase: SearchMaidsUseCase,
     private val maidRepository: MaidRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MaidListUiState())
     val uiState: StateFlow<MaidListUiState> = _uiState.asStateFlow()
 
-    init {
-        loadMaids()
-    }
+    init { loadMaids() }
 
     fun loadMaids() {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
-            try {
-                val maids = maidRepository.getNearbyMaids(
-                    latitude = 17.3850,
-                    longitude = 78.4867,
-                    radiusKm = _uiState.value.searchRadius,
-                    workType = _uiState.value.selectedWorkType,
-                    verifiedOnly = _uiState.value.verifiedOnly
-                )
-                _uiState.value = _uiState.value.copy(
-                    maids = maids,
-                    isLoading = false
-                )
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    errorMessage = e.message ?: "Failed to load maids"
-                )
+            searchMaidsUseCase(17.3850, 78.4867, 5.0, MaidFilters(
+                workType = _uiState.value.selectedWorkType,
+                verifiedOnly = _uiState.value.verifiedOnly
+            )).collect { resource ->
+                when (resource) {
+                    is Resource.Loading -> _uiState.value = _uiState.value.copy(isLoading = true)
+                    is Resource.Success -> _uiState.value = _uiState.value.copy(maids = resource.data, isLoading = false)
+                    is Resource.Error -> _uiState.value = _uiState.value.copy(isLoading = false, errorMessage = resource.message)
+                }
             }
         }
     }
 
     fun setWorkTypeFilter(workType: WorkType?) {
-        _uiState.value = _uiState.value.copy(selectedWorkType = workType)
-        loadMaids()
+        _uiState.value = _uiState.value.copy(selectedWorkType = workType); loadMaids()
     }
 
     fun setVerifiedOnly(verified: Boolean) {
-        _uiState.value = _uiState.value.copy(verifiedOnly = verified)
-        loadMaids()
-    }
-
-    fun setRadius(radiusKm: Double) {
-        _uiState.value = _uiState.value.copy(searchRadius = radiusKm)
-        loadMaids()
+        _uiState.value = _uiState.value.copy(verifiedOnly = verified); loadMaids()
     }
 
     fun toggleSaveMaid(maidId: String) {
         viewModelScope.launch {
-            val isSaved = maidRepository.isMaidSaved(maidId)
-            if (isSaved) {
-                maidRepository.removeMaidFromBookmarks(maidId)
-            } else {
-                maidRepository.saveMaidToBookmarks(maidId)
-            }
-        }
-    }
-
-    class Factory(private val maidRepository: MaidRepository) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return MaidListViewModel(maidRepository) as T
+            if (maidRepository.isMaidSaved(maidId)) maidRepository.removeMaid(maidId) else maidRepository.saveMaid(maidId)
         }
     }
 }

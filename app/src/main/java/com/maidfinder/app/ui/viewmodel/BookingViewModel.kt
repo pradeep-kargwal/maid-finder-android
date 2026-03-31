@@ -1,17 +1,15 @@
 package com.maidfinder.app.ui.viewmodel
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.maidfinder.app.data.model.Booking
-import com.maidfinder.app.data.model.BudgetType
-import com.maidfinder.app.data.model.MaidProfile
-import com.maidfinder.app.data.repository.BookingRepository
-import com.maidfinder.app.data.repository.MaidRepository
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import com.maidfinder.app.domain.model.*
+import com.maidfinder.app.domain.usecase.CreateBookingUseCase
+import com.maidfinder.app.domain.usecase.GetMaidProfileUseCase
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 data class BookingUiState(
     val maid: MaidProfile? = null,
@@ -25,84 +23,48 @@ data class BookingUiState(
     val errorMessage: String? = null
 )
 
-class BookingViewModel(
-    private val maidRepository: MaidRepository,
-    private val bookingRepository: BookingRepository,
-    private val maidId: String
+@HiltViewModel
+class BookingViewModel @Inject constructor(
+    private val getMaidProfileUseCase: GetMaidProfileUseCase,
+    private val createBookingUseCase: CreateBookingUseCase,
+    savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
+    private val maidId: String = savedStateHandle["maidId"] ?: ""
     private val _uiState = MutableStateFlow(BookingUiState())
     val uiState: StateFlow<BookingUiState> = _uiState.asStateFlow()
 
     init {
-        loadMaid()
-    }
-
-    private fun loadMaid() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
-            try {
-                val maid = maidRepository.getMaidById(maidId)
-                val rate = maid?.hourlyRate ?: 150.0
-                _uiState.value = _uiState.value.copy(
-                    maid = maid,
-                    agreedRate = rate,
-                    totalAmount = rate * 30, // estimate 30 hours/month
-                    isLoading = false
-                )
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    errorMessage = e.message ?: "Failed to load"
-                )
+            when (val result = getMaidProfileUseCase(maidId)) {
+                is Resource.Success -> {
+                    val rate = result.data.hourlyRate
+                    _uiState.value = _uiState.value.copy(maid = result.data, agreedRate = rate, totalAmount = rate * 30, isLoading = false)
+                }
+                is Resource.Error -> _uiState.value = _uiState.value.copy(isLoading = false, errorMessage = result.message)
+                is Resource.Loading -> {}
             }
         }
     }
 
-    fun updateDateStart(date: String) {
-        _uiState.value = _uiState.value.copy(dateStart = date)
-    }
-
-    fun updateDateEnd(date: String) {
-        _uiState.value = _uiState.value.copy(dateEnd = date)
-    }
+    fun updateDateStart(date: String) { _uiState.value = _uiState.value.copy(dateStart = date) }
+    fun updateDateEnd(date: String) { _uiState.value = _uiState.value.copy(dateEnd = date) }
 
     fun confirmBooking() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isBooking = true)
-            try {
-                val state = _uiState.value
-                val booking = Booking(
-                    id = "",
-                    clientId = "client_001",
-                    clientName = "Current User",
-                    maidId = maidId,
-                    maidName = state.maid?.displayName ?: "Maid",
-                    dateStart = state.dateStart,
-                    dateEnd = state.dateEnd,
-                    agreedRate = state.agreedRate,
-                    rateType = BudgetType.HOURLY,
-                    totalAmount = state.totalAmount
-                )
-                bookingRepository.createBooking(booking)
-                _uiState.value = _uiState.value.copy(isBooking = false, isBooked = true)
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isBooking = false,
-                    errorMessage = e.message ?: "Failed to create booking"
-                )
-            }
-        }
-    }
-
-    class Factory(
-        private val maidRepository: MaidRepository,
-        private val bookingRepository: BookingRepository,
-        private val maidId: String
-    ) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return BookingViewModel(maidRepository, bookingRepository, maidId) as T
+            val s = _uiState.value
+            val booking = Booking(
+                id = "", clientId = "demo_client_001", clientName = "Current User",
+                maidId = maidId, maidName = s.maid?.displayName ?: "Maid",
+                dateStart = s.dateStart, dateEnd = s.dateEnd,
+                agreedRate = s.agreedRate, rateType = BudgetType.HOURLY, totalAmount = s.totalAmount
+            )
+            createBookingUseCase(booking).fold(
+                onSuccess = { _uiState.value = _uiState.value.copy(isBooking = false, isBooked = true) },
+                onFailure = { _uiState.value = _uiState.value.copy(isBooking = false, errorMessage = it.message) }
+            )
         }
     }
 }

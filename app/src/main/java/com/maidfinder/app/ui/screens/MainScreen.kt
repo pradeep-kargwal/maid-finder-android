@@ -1,51 +1,41 @@
 package com.maidfinder.app.ui.screens
 
+import androidx.compose.animation.*
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.List
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.maidfinder.app.data.ServiceLocator
-import com.maidfinder.app.ui.viewmodel.JobFeedViewModel
-import com.maidfinder.app.ui.viewmodel.MaidListViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.maidfinder.app.domain.model.AuthSession
+import com.maidfinder.app.ui.viewmodel.*
 
 data class BottomNavItem(
     val label: String,
-    val icon: ImageVector
+    val icon: ImageVector,
+    val selectedIcon: ImageVector = icon
 )
 
 @Composable
 fun ClientMainScreen(
+    authSession: AuthSession,
     onMaidClick: (String) -> Unit,
-    onPostJobClick: () -> Unit
+    onPostJobClick: () -> Unit,
+    onConversationClick: (String, String) -> Unit,
+    onSwitchRole: () -> Unit,
+    onLogout: () -> Unit
 ) {
-    val maidListViewModel: MaidListViewModel = viewModel(
-        factory = MaidListViewModel.Factory(ServiceLocator.maidRepository)
-    )
+    val maidListViewModel: MaidListViewModel = hiltViewModel()
 
     val items = listOf(
         BottomNavItem("Home", Icons.Default.Home),
-        BottomNavItem("Search", Icons.Default.Search),
-        BottomNavItem("Jobs", Icons.Default.List),
-        BottomNavItem("Messages", Icons.Default.Notifications),
+        BottomNavItem("Bookings", Icons.Default.CalendarMonth),
+        BottomNavItem("Messages", Icons.AutoMirrored.Filled.Chat),
         BottomNavItem("Profile", Icons.Default.Person)
     )
 
@@ -58,39 +48,67 @@ fun ClientMainScreen(
                     NavigationBarItem(
                         selected = selectedTab == index,
                         onClick = { selectedTab = index },
-                        icon = { Icon(item.icon, contentDescription = item.label) },
+                        icon = {
+                            BadgedBox(
+                                badge = {
+                                    if (index == 2) {
+                                        Badge { Text("3") }
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    if (selectedTab == index) item.selectedIcon else item.icon,
+                                    contentDescription = item.label
+                                )
+                            }
+                        },
                         label = { Text(item.label) }
                     )
                 }
             }
         }
     ) { padding ->
-        when (selectedTab) {
-            0, 1 -> ClientDashboardScreen(
-                viewModel = maidListViewModel,
-                onMaidClick = onMaidClick,
-                onPostJobClick = onPostJobClick
-            )
-            2 -> PlaceholderScreen("My Jobs")
-            3 -> PlaceholderScreen("Messages")
-            4 -> PlaceholderScreen("Profile")
+        AnimatedContent(
+            targetState = selectedTab,
+            modifier = Modifier.padding(padding),
+            transitionSpec = {
+                fadeIn() + slideInHorizontally { if (targetState > initialState) 30 else -30 } togetherWith
+                    fadeOut() + slideOutHorizontally { if (targetState > initialState) -30 else 30 }
+            },
+            label = "client_tab"
+        ) { tab ->
+            when (tab) {
+                0 -> ClientDashboardScreen(
+                    viewModel = maidListViewModel,
+                    onMaidClick = onMaidClick,
+                    onPostJobClick = onPostJobClick
+                )
+                1 -> BookingsScreen(onBookingClick = {})
+                2 -> MessagesScreen(onConversationClick = onConversationClick)
+                3 -> ProfileScreen(
+                    session = authSession,
+                    onSwitchRole = onSwitchRole,
+                    onLogout = onLogout
+                )
+            }
         }
     }
 }
 
 @Composable
 fun MaidMainScreen(
-    onJobClick: (String) -> Unit = {}
+    authSession: AuthSession,
+    onJobClick: (String) -> Unit,
+    onConversationClick: (String, String) -> Unit,
+    onSwitchRole: () -> Unit,
+    onLogout: () -> Unit
 ) {
-    val jobFeedViewModel: JobFeedViewModel = viewModel(
-        factory = JobFeedViewModel.Factory(ServiceLocator.jobRepository)
-    )
+    val jobFeedViewModel: JobFeedViewModel = hiltViewModel()
 
     val items = listOf(
-        BottomNavItem("Home", Icons.Default.Home),
-        BottomNavItem("Jobs", Icons.Default.DateRange),
-        BottomNavItem("Bookings", Icons.Default.List),
-        BottomNavItem("Messages", Icons.Default.Notifications),
+        BottomNavItem("Jobs", Icons.Default.Work),
+        BottomNavItem("Bookings", Icons.Default.CalendarMonth),
+        BottomNavItem("Messages", Icons.AutoMirrored.Filled.Chat),
         BottomNavItem("Profile", Icons.Default.Person)
     )
 
@@ -103,42 +121,48 @@ fun MaidMainScreen(
                     NavigationBarItem(
                         selected = selectedTab == index,
                         onClick = { selectedTab = index },
-                        icon = { Icon(item.icon, contentDescription = item.label) },
+                        icon = {
+                            BadgedBox(
+                                badge = {
+                                    if (index == 2) {
+                                        Badge { Text("1") }
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    if (selectedTab == index) item.selectedIcon else item.icon,
+                                    contentDescription = item.label
+                                )
+                            }
+                        },
                         label = { Text(item.label) }
                     )
                 }
             }
         }
     ) { padding ->
-        when (selectedTab) {
-            0, 1 -> MaidDashboardScreen(viewModel = jobFeedViewModel, onJobClick = onJobClick)
-            2 -> PlaceholderScreen("My Bookings")
-            3 -> PlaceholderScreen("Messages")
-            4 -> PlaceholderScreen("Profile")
-        }
-    }
-}
-
-@Composable
-private fun PlaceholderScreen(title: String) {
-    androidx.compose.foundation.layout.Box(
-        modifier = Modifier.padding(),
-        contentAlignment = androidx.compose.ui.Alignment.Center
-    ) {
-        androidx.compose.foundation.layout.Column(
-            horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Text(
-                text = "Coming soon",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+        AnimatedContent(
+            targetState = selectedTab,
+            modifier = Modifier.padding(padding),
+            transitionSpec = {
+                fadeIn() + slideInHorizontally { if (targetState > initialState) 30 else -30 } togetherWith
+                    fadeOut() + slideOutHorizontally { if (targetState > initialState) -30 else 30 }
+            },
+            label = "maid_tab"
+        ) { tab ->
+            when (tab) {
+                0 -> MaidDashboardScreen(
+                    viewModel = jobFeedViewModel,
+                    onJobClick = onJobClick
+                )
+                1 -> BookingsScreen(onBookingClick = {})
+                2 -> MessagesScreen(onConversationClick = onConversationClick)
+                3 -> ProfileScreen(
+                    session = authSession,
+                    onSwitchRole = onSwitchRole,
+                    onLogout = onLogout
+                )
+            }
         }
     }
 }

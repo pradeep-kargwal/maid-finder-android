@@ -1,14 +1,16 @@
 package com.maidfinder.app.ui.viewmodel
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.maidfinder.app.data.model.MaidProfile
-import com.maidfinder.app.data.repository.MaidRepository
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import com.maidfinder.app.domain.model.MaidProfile
+import com.maidfinder.app.domain.model.Resource
+import com.maidfinder.app.domain.repository.MaidRepository
+import com.maidfinder.app.domain.usecase.GetMaidProfileUseCase
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 data class MaidProfileUiState(
     val maid: MaidProfile? = null,
@@ -17,34 +19,29 @@ data class MaidProfileUiState(
     val isSaved: Boolean = false
 )
 
-class MaidProfileViewModel(
+@HiltViewModel
+class MaidProfileViewModel @Inject constructor(
+    private val getMaidProfileUseCase: GetMaidProfileUseCase,
     private val maidRepository: MaidRepository,
-    private val maidId: String
+    savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
+    private val maidId: String = savedStateHandle["maidId"] ?: ""
     private val _uiState = MutableStateFlow(MaidProfileUiState())
     val uiState: StateFlow<MaidProfileUiState> = _uiState.asStateFlow()
 
-    init {
-        loadMaid()
-    }
+    init { loadMaid() }
 
     private fun loadMaid() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
-            try {
-                val maid = maidRepository.getMaidById(maidId)
-                val saved = maidRepository.isMaidSaved(maidId)
-                _uiState.value = _uiState.value.copy(
-                    maid = maid,
-                    isLoading = false,
-                    isSaved = saved
-                )
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    errorMessage = e.message ?: "Failed to load profile"
-                )
+            when (val result = getMaidProfileUseCase(maidId)) {
+                is Resource.Success -> {
+                    val saved = maidRepository.isMaidSaved(maidId)
+                    _uiState.value = _uiState.value.copy(maid = result.data, isLoading = false, isSaved = saved)
+                }
+                is Resource.Error -> _uiState.value = _uiState.value.copy(isLoading = false, errorMessage = result.message)
+                is Resource.Loading -> {}
             }
         }
     }
@@ -52,22 +49,8 @@ class MaidProfileViewModel(
     fun toggleSave() {
         viewModelScope.launch {
             val currentlySaved = maidRepository.isMaidSaved(maidId)
-            if (currentlySaved) {
-                maidRepository.removeMaidFromBookmarks(maidId)
-            } else {
-                maidRepository.saveMaidToBookmarks(maidId)
-            }
+            if (currentlySaved) maidRepository.removeMaid(maidId) else maidRepository.saveMaid(maidId)
             _uiState.value = _uiState.value.copy(isSaved = !currentlySaved)
-        }
-    }
-
-    class Factory(
-        private val maidRepository: MaidRepository,
-        private val maidId: String
-    ) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return MaidProfileViewModel(maidRepository, maidId) as T
         }
     }
 }
