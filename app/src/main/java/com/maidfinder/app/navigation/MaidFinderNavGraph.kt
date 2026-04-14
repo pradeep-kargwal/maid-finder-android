@@ -1,6 +1,6 @@
 package com.maidfinder.app.navigation
 
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -8,20 +8,13 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.maidfinder.app.data.ServiceLocator
-import com.maidfinder.app.ui.screens.BookingScreen
-import com.maidfinder.app.ui.screens.ClientMainScreen
-import com.maidfinder.app.ui.screens.JobDetailScreen
-import com.maidfinder.app.ui.screens.MaidMainScreen
-import com.maidfinder.app.ui.screens.MaidProfileDetailScreen
-import com.maidfinder.app.ui.screens.PostJobScreen
-import com.maidfinder.app.ui.screens.RoleSelectionScreen
-import com.maidfinder.app.ui.viewmodel.BookingViewModel
-import com.maidfinder.app.ui.viewmodel.JobDetailViewModel
-import com.maidfinder.app.ui.viewmodel.MaidProfileViewModel
-import com.maidfinder.app.ui.viewmodel.PostJobViewModel
+import com.maidfinder.app.data.model.UserRole
+import com.maidfinder.app.ui.screens.*
+import com.maidfinder.app.ui.screens.auth.LoginScreen
+import com.maidfinder.app.ui.viewmodel.*
 
 sealed class Screen(val route: String) {
-    data object RoleSelection : Screen("role_selection")
+    data object Login : Screen("login")
     data object ClientMain : Screen("client_main")
     data object MaidMain : Screen("maid_main")
     data object MaidProfileDetail : Screen("maid_profile/{maidId}") {
@@ -34,47 +27,83 @@ sealed class Screen(val route: String) {
     data object Booking : Screen("booking/{maidId}") {
         fun createRoute(maidId: String) = "booking/$maidId"
     }
+    data object Chat : Screen("chat/{conversationId}/{participantName}/{participantId}") {
+        fun createRoute(conversationId: String, participantName: String, participantId: String) =
+            "chat/$conversationId/$participantName/$participantId"
+    }
 }
 
 @Composable
 fun MaidFinderNavGraph(
     navController: NavHostController,
-    startDestination: String = Screen.RoleSelection.route
+    authViewModel: AuthViewModel
 ) {
-    NavHost(
-        navController = navController,
-        startDestination = startDestination
-    ) {
-        composable(Screen.RoleSelection.route) {
-            RoleSelectionScreen(
-                onClientSelected = {
-                    navController.navigate(Screen.ClientMain.route) {
-                        popUpTo(Screen.RoleSelection.route) { inclusive = true }
-                    }
+    val authState by authViewModel.uiState.collectAsState()
+    val startDest = if (authState.session?.isLoggedIn == true) {
+        if (authState.session?.role == UserRole.CLIENT) Screen.ClientMain.route
+        else Screen.MaidMain.route
+    } else Screen.Login.route
+
+    NavHost(navController = navController, startDestination = startDest) {
+        composable(Screen.Login.route) {
+            LoginScreen(
+                onLoginSuccess = { role ->
+                    authViewModel.verifyOtp("9876543210", "000000", role)
+                    val dest = if (role == UserRole.CLIENT) Screen.ClientMain.route else Screen.MaidMain.route
+                    navController.navigate(dest) { popUpTo(Screen.Login.route) { inclusive = true } }
                 },
-                onMaidSelected = {
-                    navController.navigate(Screen.MaidMain.route) {
-                        popUpTo(Screen.RoleSelection.route) { inclusive = true }
-                    }
-                }
+                onDemoLogin = { role ->
+                    authViewModel.loginDemo(role)
+                    val dest = if (role == UserRole.CLIENT) Screen.ClientMain.route else Screen.MaidMain.route
+                    navController.navigate(dest) { popUpTo(Screen.Login.route) { inclusive = true } }
+                },
+                onBackClick = { }
             )
         }
 
         composable(Screen.ClientMain.route) {
+            val session = authState.session ?: return@composable
             ClientMainScreen(
-                onMaidClick = { maidId ->
-                    navController.navigate(Screen.MaidProfileDetail.createRoute(maidId))
+                authSession = session,
+                onMaidClick = { navController.navigate(Screen.MaidProfileDetail.createRoute(it)) },
+                onPostJobClick = { navController.navigate(Screen.PostJob.route) },
+                onConversationClick = { convId, name ->
+                    navController.navigate(Screen.Chat.createRoute(convId, name, ""))
                 },
-                onPostJobClick = {
-                    navController.navigate(Screen.PostJob.route)
+                onSwitchRole = {
+                    authViewModel.switchDemoRole()
+                    navController.navigate(Screen.MaidMain.route) {
+                        popUpTo(Screen.ClientMain.route) { inclusive = true }
+                    }
+                },
+                onLogout = {
+                    authViewModel.logout()
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
                 }
             )
         }
 
         composable(Screen.MaidMain.route) {
+            val session = authState.session ?: return@composable
             MaidMainScreen(
-                onJobClick = { jobId ->
-                    navController.navigate(Screen.JobDetail.createRoute(jobId))
+                authSession = session,
+                onJobClick = { navController.navigate(Screen.JobDetail.createRoute(it)) },
+                onConversationClick = { convId, name ->
+                    navController.navigate(Screen.Chat.createRoute(convId, name, ""))
+                },
+                onSwitchRole = {
+                    authViewModel.switchDemoRole()
+                    navController.navigate(Screen.ClientMain.route) {
+                        popUpTo(Screen.MaidMain.route) { inclusive = true }
+                    }
+                },
+                onLogout = {
+                    authViewModel.logout()
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
                 }
             )
         }
@@ -90,9 +119,7 @@ fun MaidFinderNavGraph(
             MaidProfileDetailScreen(
                 viewModel = viewModel,
                 onBackClick = { navController.popBackStack() },
-                onBookClick = { id ->
-                    navController.navigate(Screen.Booking.createRoute(id))
-                }
+                onBookClick = { navController.navigate(Screen.Booking.createRoute(it)) }
             )
         }
 
@@ -115,10 +142,7 @@ fun MaidFinderNavGraph(
             val viewModel: JobDetailViewModel = viewModel(
                 factory = JobDetailViewModel.Factory(ServiceLocator.jobRepository, jobId)
             )
-            JobDetailScreen(
-                viewModel = viewModel,
-                onBackClick = { navController.popBackStack() }
-            )
+            JobDetailScreen(viewModel = viewModel, onBackClick = { navController.popBackStack() })
         }
 
         composable(
@@ -127,18 +151,37 @@ fun MaidFinderNavGraph(
         ) { backStackEntry ->
             val maidId = backStackEntry.arguments?.getString("maidId") ?: return@composable
             val viewModel: BookingViewModel = viewModel(
-                factory = BookingViewModel.Factory(
-                    ServiceLocator.maidRepository,
-                    ServiceLocator.bookingRepository,
-                    maidId
-                )
+                factory = BookingViewModel.Factory(ServiceLocator.maidRepository, ServiceLocator.bookingRepository, maidId)
             )
             BookingScreen(
                 viewModel = viewModel,
                 onBackClick = { navController.popBackStack() },
                 onBookingComplete = {
-                    navController.popBackStack(Screen.ClientMain.route, inclusive = false)
+                    val dest = if (authState.session?.role == UserRole.CLIENT) Screen.ClientMain.route else Screen.MaidMain.route
+                    navController.popBackStack(dest, inclusive = false)
                 }
+            )
+        }
+
+        composable(
+            route = Screen.Chat.route,
+            arguments = listOf(
+                navArgument("conversationId") { type = NavType.StringType },
+                navArgument("participantName") { type = NavType.StringType },
+                navArgument("participantId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val convId = backStackEntry.arguments?.getString("conversationId") ?: return@composable
+            val name = backStackEntry.arguments?.getString("participantName") ?: ""
+            val partId = backStackEntry.arguments?.getString("participantId") ?: ""
+            ChatScreen(
+                messageRepository = ServiceLocator.messageRepository,
+                conversationId = convId,
+                participantName = name,
+                participantId = partId,
+                currentUserId = authState.session?.userId ?: "",
+                isOnline = true,
+                onBackClick = { navController.popBackStack() }
             )
         }
     }
